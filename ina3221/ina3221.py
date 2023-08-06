@@ -20,12 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 """
-`barbudor_INA3221.full <full>` - Full version library
-=====================================================
-
 MicroPython driver for the Texas Instruments INA3221 3 channels current sensor
 
-Adapted from Barbudor
+Adapted from barbudor
 
 Implementation Notes
 --------------------
@@ -141,23 +138,23 @@ class INA3221:
     IS_FULL_API = True
 
     @staticmethod
-    def _to_signed(val):
+    def _to_signed(val: int):
         if val > 32767:
             return val - 65536
         return val
 
     @staticmethod
-    def _to_unsigned(val):
+    def _to_unsigned(val: int):
         if val < 0:
             return val + 65536
         return val
 
-    def write(self, reg, value):
+    def write(self, reg: int, value: int):
         """Write value in device register"""
         seq = bytearray([(value >> 8) & 0xFF, value & 0xFF])
         self.i2c_device.writeto_mem(self.i2c_addr, reg, seq)
 
-    def read(self, reg):
+    def read(self, reg: int):
         """Return value from device register"""
         write_buf = bytearray(1)
         write_buf[0] = reg
@@ -166,7 +163,7 @@ class INA3221:
         value = (read_buf[0] << 8) | (read_buf[1])
         return value
 
-    def update(self, reg, mask, value):
+    def update(self, reg: int, mask: int, value: int):
         """Read-modify-write value in register"""
         regvalue = self.read(reg)
         regvalue &= ~mask
@@ -192,13 +189,13 @@ class INA3221:
         )
         self.write(C_REG_CONFIG, config_mask)
 
-    def is_channel_enabled(self, channel=1):
+    def is_channel_enabled(self, channel: int = 1) -> bool:
         """Returns if a given channel is enabled or not"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         bit = C_ENABLE_CH[channel]
         return self.read(C_REG_CONFIG) & (bit != 0)
 
-    def enable_channel(self, channel=1, enable=True):
+    def enable_channel(self, channel: int = 1, enable: bool = True):
         """Enables or disable a given channel"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         bit = C_ENABLE_CH[channel]
@@ -207,26 +204,26 @@ class INA3221:
             value = bit
         self.update(C_REG_CONFIG, bit, value)
 
-    def shunt_voltage(self, channel: int = 1):
+    def shunt_voltage(self, channel: int = 1) -> float:
         """Returns the channel's shunt voltage in Volts"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         value = self._to_signed(self.read(C_REG_SHUNT_VOLTAGE_CH[channel])) / 8.0
         # convert to volts - LSB = 40uV
         return value * C_SHUNT_ADC_LSB
 
-    def current(self, channel: int = 1):
+    def current(self, channel: int = 1) -> float:
         """Return's the channel current in Amps"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         return self.shunt_voltage(channel) / self.shunt_resistor[channel - 1]
 
-    def bus_voltage(self, channel: int = 1):
+    def bus_voltage(self, channel: int = 1) -> float:
         """Returns the channel's bus voltage in Volts"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         value = self._to_signed(self.read(C_REG_BUS_VOLTAGE_CH[channel])) / 8
         # convert to volts - LSB = 8mV
         return value * C_BUS_ADC_LSB
 
-    def shunt_critical_alert_limit(self, channel: int = 1):
+    def shunt_critical_alert_limit(self, channel: int = 1) -> float:
         """Returns the channel's shunt voltage critical alert limit in Volts"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         value = self._to_signed(self.read(C_REG_CRITICAL_ALERT_LIMIT_CH[channel])) / 8
@@ -239,7 +236,7 @@ class INA3221:
         value = self._to_unsigned(round(voltage * C_SHUNT_ADC_LSB) * 8)
         self.write(C_REG_CRITICAL_ALERT_LIMIT_CH[channel], value)
 
-    def shunt_warning_alert_limit(self, channel: int = 1):
+    def shunt_warning_alert_limit(self, channel: int = 1) -> float:
         """Returns the channel's shunt voltage warning alert limit in Volts"""
         assert 1 <= channel <= 3, "channel argument must be 1, 2, or 3"
         value = self._to_signed(self.read(C_REG_WARNING_ALERT_LIMIT_CH[channel])) / 8
@@ -253,7 +250,7 @@ class INA3221:
         self.write(C_REG_WARNING_ALERT_LIMIT_CH[channel], value)
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """Returns the CVRF (ConVersion Ready Flag) from the mask/enable register"""
         regvalue = self.read(C_REG_MASK_ENABLE)
         return (regvalue & C_CONV_READY_FLAG) != 0
