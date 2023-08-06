@@ -1,74 +1,56 @@
-"""Sample code and test for barbudor_ina3221"""
+from machine import Pin, I2C
+import utime
+import ina3221
+from ina3221 import INA3221
 
-import time
-import sys
-import board
 
-# on small platform, save memory using the 'lite' version
-# pylint: disable=unused-wildcard-import,wildcard-import
-if 'SAMD21' in sys.platform:
-    from barbudor_ina3221.lite import INA3221
-else:
-    from barbudor_ina3221.full import *
-# pylint: enable=unused-wildcard-import,wildcard-import
+class Tester:
+    def __init__(self, i2c_id, scl: Pin, sda: Pin, i2c_freq: int):
+        self.led = Pin(25, Pin.OUT)
+        self.i2c = I2C(i2c_id, scl=scl, sda=sda, freq=i2c_freq)
+        self._scanI2C()
+        self.current_sensor = INA3221(
+            self.i2c,
+            c_averaging_samples=ina3221.C_AVERAGING_128_SAMPLES,
+        )
 
-i2c_bus = board.I2C()
-ina3221 = INA3221(i2c_bus)
+        self.current_sensor.enable_channel(1, True)
+        self.current_sensor.enable_channel(2, False)
+        self.current_sensor.enable_channel(3, False)
+        print("Waiting for current sensor to be ready")
+        while not self.current_sensor.is_ready:
+            utime.sleep(0.1)
 
-# change configuration (requires 'full' version of the lib)
-if INA3221.IS_FULL_API:
-    print("full API sample: improve accuracy")
-    # improve accuracy by slower conversion and higher averaging
-    # each conversion now takes 128*0.008 = 1.024 sec
-    # which means 2 seconds per channel
-    ina3221.update(reg=C_REG_CONFIG,
-                   mask=C_AVERAGING_MASK |
-                   C_VBUS_CONV_TIME_MASK |
-                   C_SHUNT_CONV_TIME_MASK |
-                   C_MODE_MASK,
-                   value=C_AVERAGING_128_SAMPLES |
-                   C_VBUS_CONV_TIME_8MS |
-                   C_SHUNT_CONV_TIME_8MS |
-                   C_MODE_SHUNT_AND_BUS_CONTINOUS)
+    def _scanI2C(self):
+        i2c_devices = self.i2c.scan()
+        for device_addr in i2c_devices:
+            print(
+                "Found I2C device at : " + hex(device_addr).upper()
+            )  # Display device address
+        return
 
-# enable all 3 channels. You can comment (#) a line to disable one
-ina3221.enable_channel(1)
-ina3221.enable_channel(2)
-ina3221.enable_channel(3)
+    def main(self):
+        print("Starting")
 
-# pylint: disable=bad-whitespace
+        while True:
+            utime.sleep(1)
+            self.led.toggle()
+            current_ch1 = self.current_sensor.current(1)
+            current_ch2 = self.current_sensor.current(2)
+            voltage_ch1 = self.current_sensor.bus_voltage(1)
+            voltage_ch2 = self.current_sensor.bus_voltage(2)
+            print(
+                f"Current at channel 1: {current_ch1} A\nCurrent at channel 2: {current_ch2} A"
+            )
+            print(
+                f"Voltage at channel 1: {voltage_ch1} V\nVoltage at channel 2: {voltage_ch2} V\n"
+            )
 
-while True:
-    if INA3221.IS_FULL_API: # is_ready available only in "full" variant
-        while not ina3221.is_ready:
-            print(".",end='')
-            time.sleep(0.1)
-        print("")
 
-    print("------------------------------")
-    line_title =         "Measurement   "
-    line_psu_voltage =   "PSU voltage   "
-    line_load_voltage =  "Load voltage  "
-    line_shunt_voltage = "Shunt voltage "
-    line_current =       "Current       "
-
-    for chan in range(1,4):
-        if ina3221.is_channel_enabled(chan):
-            #
-            bus_voltage = ina3221.bus_voltage(chan)
-            shunt_voltage = ina3221.shunt_voltage(chan)
-            current = ina3221.current(chan)
-            #
-            line_title +=         "| Chan#{:d}      ".format(chan)
-            line_psu_voltage +=   "| {:6.3f}    V ".format(bus_voltage + shunt_voltage)
-            line_load_voltage +=  "| {:6.3f}    V ".format(bus_voltage)
-            line_shunt_voltage += "| {:9.6f} V ".format(shunt_voltage)
-            line_current +=       "| {:9.6f} A ".format(current)
-
-    print(line_title)
-    print(line_psu_voltage)
-    print(line_load_voltage)
-    print(line_shunt_voltage)
-    print(line_current)
-
-    time.sleep(2.0)
+if __name__ == "__main__":
+    """
+    Flashes LED and reads data from I2C device 0 with SDA/SCL pins on GPIO20/GPIO21
+    """
+    tester = Tester(
+        i2c_id=0, scl=Pin(21), sda=Pin(20), i2c_freq=400000)
+    tester.main()
