@@ -15,7 +15,7 @@ class Tester:
         )
 
         self.current_sensor.enable_channel(1, True)
-        self.current_sensor.enable_channel(2, False)
+        self.current_sensor.enable_channel(2, True)
         self.current_sensor.enable_channel(3, False)
         print("Waiting for current sensor to be ready")
         while not self.current_sensor.is_ready:
@@ -50,7 +50,7 @@ class Tester:
 if __name__ == "__main__":
     """
     Flashes LED and reads data from I2C device 0 with SDA/SCL pins on GPIO20/GPIO21
+    The INA3221 should be connected to two different loads on channel 1 and channel 2 with 100mOhm shunt resistors
     """
-    tester = Tester(
-        i2c_id=0, scl=Pin(21), sda=Pin(20), i2c_freq=400000)
+    tester = Tester(i2c_id=0, scl=Pin(21), sda=Pin(20), i2c_freq=400000)
     tester.main()
